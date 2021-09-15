@@ -13,6 +13,10 @@ for i in range(len(cogs)) :
 
 @bot.command()
 async def ping(ctx):
+    
+    embed = discord.Embed(title="Song100", description="This is my song", colour=discord.Colour.dark_blue())
     await ctx.send('pong')
+    await ctx.send(embed=embed)
 
-bot.run('ODg3NDMzMDM2MTgwODg5NjMx.YUEEaw.Ut67XONSAnuYAMbP9fzFKpCTRdY')
+
+bot.run('ODg3NDMzMDM2MTgwODg5NjMx.YUEEaw.WXju_JXcVrJIRD77ONN-mQIvAPw')
