@@ -79,7 +79,15 @@ class music(commands.Cog):
         
         await self.play_song(ctx, url)
         
-       
+    @commands.command()
+    async def skip(self, ctx):
+        await ctx.voice_client.stop()
+        self.queue.pop(0)
+        if len(self.queue) > 0:
+            self.play_song(ctx, self.queue[0])
+        else:
+            await ctx.voice_client.stop()
+        
     
     @commands.command()
     async def pause(self, ctx):
