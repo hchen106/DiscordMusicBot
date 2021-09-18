@@ -10,10 +10,12 @@ class music(commands.Cog):
         self.queue = []
     
     async def check_queue(self, ctx):
-        if len(self.queue) > 0:
-            #ctx.voice_client.stop()
-            await self.play_song(ctx, self.queue[0])
-            self.queue.pop(0); 
+        size = len(self.queue)
+        if size >= 0:
+            ctx.voice_client.stop()
+            if size > 0:
+                await self.play_song(ctx, self.queue[0])
+                self.queue.pop(0)
 
 
     async def search_song(self, amount, song, get_url=False):
@@ -34,6 +36,10 @@ class music(commands.Cog):
             url2 = info['formats'][0]['url']
             source = await discord.FFmpegOpusAudio.from_probe(url2, **FFMPEG_OPTIONS)
             vc.play(source, after=lambda error: self.client.loop.create_task(self.check_queue(ctx)))
+            song_title = info.get('title', None)
+            embed = discord.Embed(title = f"Now Playing▶️   {song_title}", description="", colour=discord.Colour.red())
+            await ctx.send(embed=embed)  
+      
         #song = pafy.new(url).getbestaudio().url
         #ctx.voice_client.play(discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(song)), after=lambda error: self.client.loop.create_task(self.check_queue(ctx)))
     
@@ -61,7 +67,7 @@ class music(commands.Cog):
         if not ("youtube.com/watch?" in song or "https://youtu.be/" in song):
             song_info = await self.search_song(1, song)
 
-            embed = discord.Embed(title=f"Results for '{song}':", description="*You can use these URL's to play an exact song if the one you want isn't the first result.*\n", colour=discord.Colour.red())
+            embed = discord.Embed(title=f"Results for '{song}':", description="", colour=discord.Colour.red())
         
             amount = 0
             for entry in song_info["entries"]:
@@ -75,31 +81,41 @@ class music(commands.Cog):
         if ctx.voice_client.source is not None:
             size = len(self.queue)
             self.queue.append(url)
-            await ctx.send(text=f"added to the queue {size}")
+            return await ctx.send(f"added to the queue position: {size + 1}.")
         
         await self.play_song(ctx, url)
         
     @commands.command()
     async def skip(self, ctx):
-        await ctx.voice_client.stop()
-        self.queue.pop(0)
-        if len(self.queue) > 0:
-            self.play_song(ctx, self.queue[0])
-        else:
-            await ctx.voice_client.stop()
-        
-    
+        ctx.voice_client.stop()
+        await self.check_queue(ctx)
+   
     @commands.command()
     async def pause(self, ctx):
-        await ctx.voice_client.pause()
-        await ctx.send('pause')
+        ctx.voice_client.pause()
+        await ctx.send('paused  ⏸️')
 
     @commands.command()
     async def resume(self, ctx):
-        await ctx.voice_client.resume()
-        await ctx.send('resume')        
+        ctx.voice_client.resume()
+        await ctx.send('resumed  ⏯️')        
 
+    @commands.command()
+    async def queue(self, ctx):
+        if len(self.queue) == 0:
+            return await ctx.send("There is no song in the queue")
         
+        embed = discord.Embed(title="Queue List", description="", colour=discord.Colour.blue())
+        i = 1
+        for info in self.queue:
+            YDL_OPTIONS = {'format': 'bestaudio'}
+            with youtube_dl.YoutubeDL(YDL_OPTIONS) as ydl:
+                info_dict = ydl.extract_info(info, download=False)
+                video_title = info_dict.get('title', None)
+            
+            embed.description += f"{i}). {video_title}\n"
+            i += 1
+        await ctx.send(embed = embed)
 
 def setup(client):
     client.add_cog(music(client))
