@@ -3,6 +3,8 @@ from discord import voice_client
 from discord.ext import commands
 import youtube_dl
 import pafy
+import json
+
 
 class music(commands.Cog):
     def __init__(self, client):
@@ -24,6 +26,7 @@ class music(commands.Cog):
 
         return [entry["webpage_url"] for entry in info["entries"]] if get_url else info
     
+
     async def play_song(self, ctx, url):
  
         
@@ -43,6 +46,12 @@ class music(commands.Cog):
         #song = pafy.new(url).getbestaudio().url
         #ctx.voice_client.play(discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(song)), after=lambda error: self.client.loop.create_task(self.check_queue(ctx)))
     
+    async def getUrlInfo(self, url):
+        YDL_OPTIONS = {'format': 'bestaudio'}
+        ydl =  youtube_dl.YoutubeDL(YDL_OPTIONS)
+        return ydl.extract_info(url, download=False)
+
+
     @commands.command()
     async def join(self, ctx):
         if ctx.author.voice is None:
@@ -56,6 +65,24 @@ class music(commands.Cog):
     @commands.command()
     async def disconnect(self, ctx):
         await ctx.voice_client.disconnect()
+
+    @commands.command()
+    async def talk(self, ctx):
+        
+        song = 'lalisa'
+        await ctx.send(f'!play {song}')
+        song_info = await self.search_song(1, song)  
+        embed = discord.Embed(title=f"Results for '{song}':", description="", colour=discord.Colour.red())
+        
+        amount = 0
+        for entry in song_info["entries"]:   
+            url = f"{entry['webpage_url']}"
+            embed.description += f"[{entry['title']}]({entry['webpage_url']})\n"
+            amount += 1
+
+        await self.play_song(ctx, url)
+
+
 
     @commands.command()
     async def play(self, ctx, *, song=None):
@@ -89,6 +116,7 @@ class music(commands.Cog):
     async def skip(self, ctx):
         ctx.voice_client.stop()
         await self.check_queue(ctx)
+        await ctx.send("Skipped!")
    
     @commands.command()
     async def pause(self, ctx):
@@ -117,5 +145,110 @@ class music(commands.Cog):
             i += 1
         await ctx.send(embed = embed)
 
+    @commands.command()
+    async def jsontestw(self, ctx):
+        newdict = {"name": "new song", "url": "www.123.com"}
+        newlist = []
+        with open('playlist.json', "r+") as f:
+            f_data = f.read()
+            data = json.loads(f_data)
+            print(data['list'][4])
+            f.close()
+        
+    @commands.command()
+    async def createlist(self, ctx, listname=None):
+         if listname is None:
+             await ctx.send("Please Enter a list name")
+             return
+         with open('playlist.json', "r+") as f:
+            f_data = f.read()
+            data = json.loads(f_data)
+            if listname in data:
+                await ctx.send("List Name already exist, please Enter a new List name")
+                return
+            data[listname] = []
+            f.seek(0)
+            json.dump(data, f, indent=4)
+            f.close()
+         await ctx.send( listname +" play list is CREATED")
+
+    @commands.command()
+    async def addsong(self, ctx, listname, songname=None):
+         if listname is None:
+            await ctx.send("Please Enter a list name")
+            return
+         with open('playlist.json', "r+") as f:  
+            f_data = f.read()
+            data = json.loads(f_data)
+            if listname not in data :
+                await ctx.send('No such list')
+                return
+            
+            if songname is None:
+                await ctx.send('Please enter song name')
+                return
+            name = ''
+            url = songname
+            if not ("youtube.com/watch?" in songname or "https://youtu.be/" in songname):
+                 info = await self.search_song(1, songname)
+                 for entry in info["entries"]:
+                    url = f"{entry['webpage_url']}"
+                    name = f"{entry['title']}"
+            else:
+                info = await self.getUrlInfo(url)
+                name = info.get('title', None) 
+            
+            newsong = {"name" : name, "url": url}
+            data[listname].append(newsong)
+            f.seek(0)
+            json.dump(data, f, indent=4)
+            f.close()
+         await ctx.send("new song is ADDED to " + listname + " play list")
+
+    @commands.command()
+    async def playlist(self, ctx, songlist=None):
+        self.queue.clear()
+        songs = []
+        if songlist is None:
+             await ctx.send("Please Enter a list name")
+             return
+        with open('playlist.json', "r+") as f:
+            f_data = f.read()
+            data = json.loads(f_data)
+            if songlist not in data:
+                await ctx.send('No such list')
+                return
+            songs = data[songlist]
+            f.close()
+        for song in songs:
+            self.queue.append(song['url'])
+        if(not self.queue):
+            await ctx.send('There are no song in the list')
+            return
+        firstsong = self.queue.pop(0)
+        await self.play_song(ctx, firstsong)
+    
+    @commands.command()
+    async def viewlist(self, ctx, songlist=None):
+        if songlist is None:
+            await ctx.send("Please Enter a list name")
+            return
+        names = []
+        with open('playlist.json', "r+") as f:
+            f_data = f.read()
+            data = json.loads(f_data)
+            if songlist not in data:
+                await ctx.send('No such list')
+                return
+            names = data[songlist]
+            f.close()
+        embed = discord.Embed(title=songlist, description="", colour=discord.Colour.blue())
+        i = 1
+        for song in names:
+            songname = song['name']
+            embed.description += f"{i}). {songname}\n"
+            i += 1
+        await ctx.send(embed = embed)
+      
 def setup(client):
     client.add_cog(music(client))

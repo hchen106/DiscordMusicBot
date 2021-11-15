@@ -4,7 +4,7 @@ r = sr.Recognizer()
 mic = sr.Microphone()
 
 with mic as source:
-    print("talk now")
+    print("talk")
     audio = r.listen(source)
     print("Time Over")
 
